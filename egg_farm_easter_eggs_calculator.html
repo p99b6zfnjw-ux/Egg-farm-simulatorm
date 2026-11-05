@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#eeeeee">
+<title>Egg Farm Simulator — Easter Eggs Setup</title>
+<style>
+:root{font-family:Georgia,"Times New Roman",serif;color:#111;background:#eee}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#eee}
+header{background:#aaa;text-align:center;padding:22px;font-size:25px}
+main{width:min(760px,94%);margin:48px auto 30px;text-align:center}
+h1{font-size:clamp(27px,5vw,40px);margin:0 0 48px}
+.fields{display:grid;grid-template-columns:1fr 1.05fr;gap:18px 20px;align-items:center;text-align:right}
+label{font-size:clamp(18px,3vw,25px)}
+input{width:100%;min-width:0;border:3px solid #777;border-radius:16px;background:#fff;padding:15px 12px;font:22px Georgia;text-align:center;color:#111}
+.actions{margin:30px 0}
+button{border:0;border-radius:10px;background:#9be43f;padding:13px 54px;font:23px Arial;color:#17220c;box-shadow:3px 6px 10px #9cbd83;cursor:pointer}
+button:active{transform:translateY(1px)}
+.secondary{background:#ddd;box-shadow:none;border:1px solid #aaa;padding:10px 24px;font-size:17px;margin-left:8px}
+#error{color:#a32626;min-height:24px;font:16px Arial}
+.results{margin:32px auto 0;display:grid;gap:24px;font-size:clamp(22px,4vw,29px)}
+.result{padding:8px}
+.result small{display:block;font:14px Arial;color:#666;margin-top:6px}
+.note{margin:36px auto 0;max-width:650px;text-align:left;font:14px/1.55 Arial;color:#555}
+footer{text-align:center;padding:18px;color:#777;font:13px Arial}
+@media(max-width:520px){main{margin-top:38px}.fields{grid-template-columns:1fr;gap:8px;text-align:left}.fields label{margin-top:10px}input{font-size:20px}.results{gap:15px}}
+</style>
+</head>
+<body>
+<header><u>Home</u></header>
+<main>
+<h1>Optimal Easter Eggs Setup</h1>
+<div class="fields">
+<label for="be">Enter Total BE:</label>
+<input id="be" inputmode="decimal" value="9.90e5" autocomplete="off">
+<label for="misc">Current Misc Level:</label>
+<input id="misc" inputmode="decimal" type="number" min="0" step="1" value="1">
+<label for="water">Enter Water Level:</label>
+<input id="water" inputmode="decimal" type="number" min="0" step="1" value="10">
+</div>
+<div class="actions">
+<button id="calculate">Enter</button>
+<button class="secondary" id="reset" type="button">Reset</button>
+</div>
+<div id="error" role="alert"></div>
+<section class="results" aria-live="polite">
+<div class="result" id="miscOut">Misc: —</div>
+<div class="result" id="mainOut">Main: —</div>
+<div class="result" id="turtleOut">Turtle: —</div>
+<div class="result" id="gkOut">GK: —</div>
+</section>
+<div class="note">
+<b>Catatan perhitungan:</b> Kalkulator ini memakai pembagian anggaran dari kalkulator komunitas Egg Farm Simulator: 10% untuk Misc 13, 45% untuk Main 7, 20% untuk Turtle, dan 20% untuk Good Knight. Water Egg mengurangi biaya upgrade eksponensial/linear. Hasil adalah rekomendasi level target; angka dapat berbeda dari kalkulator versi lain.
+</div>
+</main>
+<footer>Egg Farm Simulator • Easter Eggs Setup Calculator</footer>
+<script>
+const $ = id => document.getElementById(id);
+function parseBigInput(s){
+  s=String(s).trim().toLowerCase().replace(/,/g,'');
+  const m=s.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(?:e([+-]?\d+))?$/);
+  if(!m) return NaN;
+  return Number(m[1])*Math.pow(10,Number(m[2]||0));
+}
+function sci(n,d=2){
+  if(!Number.isFinite(n)) return "—";
+  if(Math.abs(n)<1e5 && Math.abs(n)>=.001) return Number(n.toFixed(d)).toLocaleString('en-US');
+  return n.toExponential(d).replace('e+','e');
+}
+function calculate(){
+  const be=parseBigInput($('be').value);
+  const current=Number($('misc').value);
+  const water=Number($('water').value);
+  $('error').textContent='';
+  if(!(be>=0) || !Number.isFinite(be) || !(current>=0) || !Number.isFinite(current) || !(water>=0) || !Number.isFinite(water)){
+    $('error').textContent='Periksa input. Masukkan angka BE, Misc Level, dan Water Level yang valid.';
+    return;
+  }
+  // Water Egg cost reduction: 1 - 0.95^level.
+  const reduction=1-Math.pow(.95,water);
+  const remaining=Math.max(1e-15,1-reduction);
+  // Community calculator allocation model:
+  // Misc 13: 10% of BE, shared among 13 exponential-cost eggs.
+  const miscPerEgg=(be*.10/13)/remaining;
+  const miscTarget=miscPerEgg>0 ? Math.max(0,Math.floor(Math.log2(miscPerEgg+1)-1)) : 0;
+  // Main 7: 45% of BE, shared among 7 linear-cost eggs.
+  const mainPerEgg=(be*.45/7)/remaining;
+  const mainTarget=Math.max(0,Math.floor(Math.sqrt(2*mainPerEgg+.25)-.5));
+  // Turtle: 20% of BE; community calculator's Turtle scaling approximation.
+  const turtleTarget=Math.max(0,Math.floor(Math.pow((be*.20)*(1+remaining),.4)));
+  // Good Knight has constant cost of 1 BE per level.
+  const gkBudget=be*.20;
+  $('miscOut').innerHTML=`Misc: ${sci(miscTarget,0)} (+${sci(Math.max(0,miscTarget-current),0)})<small>Level target • kenaikan dari level saat ini</small>`;
+  $('mainOut').innerHTML=`Main: ${sci(mainTarget,2)}<small>Level target setiap Main 7</small>`;
+  $('turtleOut').innerHTML=`Turtle: ${sci(turtleTarget,2)}<small>Level target</small>`;
+  $('gkOut').innerHTML=`GK: ${sci(gkBudget,2)}<small>Anggaran Black Eggs untuk Good Knight</small>`;
+}
+$('calculate').addEventListener('click',calculate);
+$('reset').addEventListener('click',()=>{$('be').value='9.90e5';$('misc').value='1';$('water').value='10';calculate();});
+['be','misc','water'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')calculate()}));
+calculate();
+</script>
+</body>
+</html>
